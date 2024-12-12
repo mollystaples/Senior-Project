@@ -1,0 +1,564 @@
+---
+title: "Senior Project 2"
+output: html_document
+date: "2024-10-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+```
+# Importing data
+
+```{r}
+first_quartile_all<- read_excel("SeriesReport-20241118165000_23b211.xlsx")
+median_all<-read_excel("SeriesReport-20241118165006_9cf52d.xlsx")
+third_quartile_all<- read_excel("SeriesReport-20241118165012_c8e040.xlsx")
+
+first_quartile_all<-na.omit(first_quartile_all)
+colnames(first_quartile_all)<- first_quartile_all[1,]
+first_quartile_all<-first_quartile_all[2:nrow(first_quartile_all),]
+first_quartile_all$Yearly<- as.numeric(first_quartile_all$Annual)*52
+
+median_all<-na.omit(median_all)
+colnames(median_all)<- median_all[1,]
+median_all<-median_all[2:nrow(median_all),]
+median_all$Yearly<- as.numeric(median_all$Annual)*52
+
+third_quartile_all<-na.omit(third_quartile_all)
+colnames(third_quartile_all)<- third_quartile_all[1,]
+third_quartile_all<-third_quartile_all[2:nrow(third_quartile_all),]
+third_quartile_all$Yearly<- as.numeric(third_quartile_all$Annual)*52
+
+bach_third<- read_excel("SeriesReport-20241118170747_dd0b4f.xlsx")
+bach_median<- read_excel("SeriesReport-20241118170743_5e6752.xlsx")
+bach_first<- read_excel("SeriesReport-20241118170739_caee3a.xlsx")
+hs_third <- read_excel("SeriesReport-20241118170735_3ad636.xlsx")
+hs_median <- read_excel("SeriesReport-20241118170732_79974f.xlsx")
+hs_first<- read_excel("SeriesReport-20241118170729_9a5879.xlsx")
+
+bach_first<-na.omit(bach_first)
+colnames(bach_first)<- bach_first[1,]
+bach_first<-bach_first[2:nrow(bach_first),]
+bach_first$Yearly<- as.numeric(bach_first$Annual)*52
+
+bach_median<-na.omit(bach_median)
+colnames(bach_median)<- bach_median[1,]
+bach_median<-bach_median[2:nrow(bach_median),]
+bach_median$Yearly<- as.numeric(bach_median$Annual)*52
+
+bach_third<-na.omit(bach_third)
+colnames(bach_third)<- bach_third[1,]
+bach_third<-bach_third[2:nrow(bach_third),]
+bach_third$Yearly<- as.numeric(bach_third$Annual)*52
+
+hs_first<-na.omit(hs_first)
+colnames(hs_first)<- hs_first[1,]
+hs_first<-hs_first[2:nrow(hs_first),]
+hs_first$Yearly<- as.numeric(hs_first$Annual)*52
+
+hs_median<-na.omit(hs_median)
+colnames(hs_median)<- hs_median[1,]
+hs_median<-hs_median[2:nrow(hs_median),]
+hs_median$Yearly<- as.numeric(hs_median$Annual)*52
+
+hs_third<-na.omit(hs_third)
+colnames(hs_third)<- hs_third[1,]
+hs_third<-hs_third[2:nrow(hs_third),]
+hs_third$Yearly<- as.numeric(hs_third$Annual)*52
+
+by_race<- read_csv("EPI Data Library - Wages by education.csv")
+
+salary_breakdown<- read_csv("~/Documents/salarybreakdown/BLS Data Series-1-Table 1.csv")
+salary_breakdown<- salary_breakdown[3:33, ]
+colnames(salary_breakdown)<- salary_breakdown[1,]
+
+Median_Salary_Sheet1 <- read_csv("Median Salary - Sheet1.csv")
+Average_cost_of_college_Sheet1 <- read_csv("Average cost of college - Sheet1.csv")
+Median_Salary_men_current <- read_csv("Median Salary - Sheet2 (2).csv")
+Median_Salary_women_current <- read_csv("Median Salary - Sheet3 (2).csv")
+Median_Salary_men_2022 <- read_csv("Median Salary - Sheet4 (2).csv")
+Median_Salary_women_2022 <- read_csv("Median Salary - Sheet5 (2).csv")
+Average_cost_of_cc<- read_csv("Median Salary - Sheet6 (1).csv")
+Average_cost_college_bystate<- read_csv("Median Salary - Sheet7.csv")
+Average_salary_bystate<- read_csv("Median Salary - Sheet8.csv")
+
+Average_cost_of_college_Sheet1$Year <- substr(Average_cost_of_college_Sheet1$Year, 1,4)
+Average_cost_of_college_Sheet1$`Public 4 Year`<- as.numeric(gsub("[\\$,]", "", Average_cost_of_college_Sheet1$`Public 4 Year`))
+Average_cost_of_college_Sheet1$`Private 4 Year`<- as.numeric(gsub("[\\$,]", "", Average_cost_of_college_Sheet1$`Private 4 Year`))
+Average_cost_of_college_Sheet1$Year<- as.numeric(Average_cost_of_college_Sheet1$Year)
+
+Average_cost_of_cc$`Community College`<- as.numeric(gsub("[\\$,]", "", Average_cost_of_cc$`Community College`))
+Average_cost_of_cc$Year<- as.numeric(Average_cost_of_cc$Year)
+
+historicbachsalary <- read_csv("~/Downloads/Median Salary - Sheet10 (1).csv")
+
+historichssalary <- read_csv("~/Downloads/Median Salary - Sheet11 (2).csv")
+
+historical_cost_of_college_Data_1_ <- read_csv("~/Downloads/historical cost of college - Data (1).csv")
+
+newhistoricbach <- read_csv("~/Downloads/LEU0252918500A.csv")
+
+newhistorichs <- read_csv("~/Downloads/Median Salary - newhistorichs.csv")
+```
+
+#functions
+
+```{r}
+npv<-function(tlist, cost, earnings, r, lengthofdegree){
+  toreturn<-c(0)
+  for(t in head(tlist,-1)){
+    timeinschool<- 0:min(t, lengthofdegree)
+    timeoutschool<- (lengthofdegree+1):t
+    totalcost<-sum(cost/(1+r)^timeinschool)
+    totalearnings<-sum(earnings/(1+r)^timeoutschool)
+    if(t<=lengthofdegree){
+      totalearnings<-0
+    }
+    toreturn<-append(toreturn, totalearnings-totalcost)
+  }
+  return(toreturn)
+}
+
+#example
+npv(0:40,4000,51460,.02,2)
+
+npv_promo<-function(tlist, cost, earnings, promo, r, lengthofdegree){
+  toreturn<-c(0)
+  for(t in head(tlist,-1)){
+    timeinschool<- 0:min(t, lengthofdegree)
+    timeoutschool<- (lengthofdegree+1):t
+    totalcost<-sum(cost/(1+r)^timeinschool)
+    totalearnings<-0
+    for(index in 1:(length(promo))){
+      if(promo[index]<= length(timeoutschool)){
+        if(index< length(promo)){
+          totalearnings<- totalearnings + 
+          sum(earnings[index]/(1+r)^timeoutschool[promo[index]:min(length(timeoutschool),promo[index+1]-1)])
+        } else{
+          totalearnings<- totalearnings + 
+          sum(earnings[index]/(1+r)^timeoutschool[promo[index]:length(timeoutschool)])
+        }
+      }
+    
+    
+    }
+    if(t<=lengthofdegree){
+      totalearnings<-0
+    }
+    toreturn<-append(toreturn, totalearnings-totalcost)
+  }
+  return(toreturn)
+}
+
+#example
+npv_promo(0:40, 0, c(20000,30000,40000), c(1,20,30), 0.02, -1)
+
+crossover<-function(list1, list2){
+  #list2 will be the bigger one in the end (college)
+  for(index in 2:length(list1)){
+    if(list1[index]< list2[index]){
+      return(index)
+    }
+  }
+}
+
+#example
+list1<-c(0,1,2,3,4,5,6,8)
+list2<-c(0,-1,-3,-1,2,7,12,15)
+
+crossover(list2,list1)
+
+npv_promo_overtime<-function(tlist, cost, r, lengthofdegree, df, column_name){
+  toreturn<-c(0)
+  for(t in head(tlist,-1)){
+    timeinschool<- 0:min(t, lengthofdegree)
+    timeoutschool<- (lengthofdegree+1):t
+    totalcost<-sum(cost/(1+r)^timeinschool)
+    totalearnings<-0
+    for(i in 1:(t-lengthofdegree)) {
+      value <- select(df[i, ], column_name)
+      totalearnings<- totalearnings+value
+      }
+    }
+    if(t<=lengthofdegree){
+      totalearnings<-0
+    }
+    toreturn<-append(toreturn, totalearnings-totalcost)
+  return(toreturn)
+}
+
+bach1963<-data.frame(year=0:40, 
+                     bach1963=npv_promo_overtime(0:40, 243, r, 4, newhistoricbach, 'reported'))
+bach1963
+
+
+```
+
+
+
+```{r}
+#input -1 for no college
+npv_net<-function(yearsofschool,costofschool,yearlyincome,r,timerange= 0:40){
+  npvdf<-data.frame(timeoutofhighschool=timerange)
+  schoolcost=rep(0,length(timerange))
+  schoolcost[2:(yearsofschool+2)]=costofschool
+  income=rep(0, length(timerange))
+  income[(yearsofschool+3):length(timerange)]=yearlyincome[1:(length(timerange)-yearsofschool-2)]
+  npvdf<-npvdf %>% mutate(schoolcost=schoolcost, income=income) %>% 
+    mutate(yearroi= (income-schoolcost)/(1+r)^timeoutofhighschool)
+  print(npvdf)
+  return(cumsum(npvdf$yearroi))
+}
+
+test<-npv_net(4,423,filter(newhistoricbach, Year>= 1968)$reported,0.02)
+test
+```
+
+
+```{r}
+test$yearroi
+cumsum(test$yearroi)
+```
+
+#new data frames and plots
+
+```{r}
+ROI<-data.frame(year=0:40, mensassociates=npv(0:40,3890,62740,.02,2))
+ROI2<-data.frame(year=0:40, womensassociates=npv(0:40, 3890, 50220, .02,2))
+ROI3<-data.frame(year=0:40, mensbachelorspublic=npv(0:40, 9750, 90330, .02,4))
+ROI4<-data.frame(year=0:40, womensbachelorspublic=npv(0:40, 9750, 65960, .02,4))
+ROI5<-data.frame(year=0:40, mensbachelorsprivate=npv(0:40, 35248, 90330, .02,4))
+ROI6<-data.frame(year=0:40, womensbachelorsprivate=npv(0:40, 35248, 65960, .02,4))
+ROI7<-data.frame(year=0:40, menshighschool=npv(0:40, 0, 51460, .02,-1))
+ROI8<-data.frame(year=0:40, womenshighschool=npv(0:40, 0, 40230, .02,-1))
+
+ggplot()+geom_line(data=ROI, mapping = aes(x= year, y = `mensassociates`, color = "mensassociate"), linewidth=2)+
+  geom_line(data=ROI2, mapping = aes(x= year, y = `womensassociates`, color = "womensassociate"), linewidth = 2)+
+  geom_line(data=ROI3, mapping = aes(x= year, y = `mensbachelorspublic`, color = "mensbachelorspublic"), linetype = 3)+
+  geom_line(data=ROI4, mapping = aes(x= year, y = `womensbachelorspublic`, color = "womensbachelorspublic"), linetype = 3)+
+  geom_line(data=ROI5, mapping = aes(x= year, y = `mensbachelorsprivate`, color = "mensbachelorsprivate"))+
+  geom_line(data=ROI6, mapping = aes(x= year, y = `womensbachelorsprivate`, color = "womensbachelorsprivate"))+
+  geom_line(data=ROI7, mapping = aes(x= year, y = `menshighschool`, color = "menshighschool"), linetype=2)+
+  geom_line(data=ROI8, mapping = aes(x= year, y = `womenshighschool`, color = "womenshighschool"), linetype = 2)+
+  labs(x = "Year", y = "Dollars", title = "ROI" ) +
+  scale_color_manual(values=c("mensassociate"="blue", "womensassociate"="red", "mensbachelorspublic"="blue", "womensbachelorspublic"= "red", "mensbachelorsprivate"="blue", "womensbachelorsprivate"="red", "menshighschool"="blue", "womenshighschool" = "red"))
+
+plot(0:40, f1<-npv_promo(0:40, 8000, c(30000,50000,70000), c(5,20,30), 0.02, 4))
+lines(0:40, f2<-npv_promo(0:40, 0, c(20000,30000,40000), c(1,20,30), 0.02, -1))
+
+```
+
+
+
+```{r}
+r<- .02 #make note about changing this in presentation 
+
+all_bach<-data.frame(year=0:40, 
+                     allbach=npv_promo(0:40, 9750, c(52208,77636,117936), c(1,14,27), r, 4))
+all_hs<-data.frame(year=0:40, 
+                     allhs=npv_promo(0:40, 0, c(35464,46748,64948), c(1,14,27), r, -1))
+
+ggplot()+geom_line(data=all_bach, mapping = aes(x= year, y = `allbach`, color = "allbach"), linewidth=2)+
+  geom_line(data=all_hs, mapping = aes(x= year, y = `allhs`, color = "allhs"), linewidth = 2)+
+  labs(x = "Year", y = "Dollars", title = "NPV" ) 
+
+men_bach<-data.frame(year=0:40, 
+                     menbach=npv_promo(0:40, 9750, c(1137*52,1726*52,2510*52), c(1,14,27), r, 4))
+women_bach<-data.frame(year=0:40, 
+                     womenbach=npv_promo(0:40, 9750, c(917*52,1318*52,1895*52), c(1,14,27), r, 4))
+men_hs<-data.frame(year=0:40, 
+                     menhs=npv_promo(0:40, 0, c(738*52,991*52,1396*52), c(1,14,27), r, -1))
+women_hs<-data.frame(year=0:40, 
+                     womenhs=npv_promo(0:40, 0, c(612*52,770*52,1027*52), c(1,14,27), r, -1))
+
+ggplot()+geom_line(data=men_bach, mapping = aes(x= year, y = `menbach`, color = "menbach"))+
+  geom_line(data=women_bach, mapping = aes(x= year, y = `womenbach`, color = "womenbach"))+
+  geom_line(data=men_hs, mapping = aes(x= year, y = `menhs`, color = "menhs"), linetype=2)+
+  geom_line(data=women_hs, mapping = aes(x= year, y = `womenhs`, color = "womenhs"), linetype=2)+
+  labs(x = "Year", y = "Dollars", title = "NPV by Gender" ) +
+  scale_color_manual(values=c("menbach"="blue", "womenbach"="red", "menhs"="blue", "womenhs"= "red"))
+
+
+white_bach<-data.frame(year=0:40, 
+                     whitebach=npv_promo(0:40, 9750, c(31.57*2080,45.10*2080,58.63*2080), c(1,14,27), r, 4))
+black_bach<-data.frame(year=0:40, 
+                     blackbach=npv_promo(0:40, 9750, c(24.66*2080,35.16*2080,45.66*2080), c(1,14,27), r, 4))
+hispanic_bach<-data.frame(year=0:40, 
+                     hispanicbach=npv_promo(0:40, 9750, c(917*52,1318*52,1895*52), c(1,14,27), r, 4))
+white_hs<-data.frame(year=0:40, 
+                     whitehs=npv_promo(0:40, 0, c(16.97*2080,24.24*2080,31.51*2080), c(1,14,27), r, -1))
+black_hs<-data.frame(year=0:40, 
+                     blackhs=npv_promo(0:40, 0, c(14.57*2080,20.82*2080,27.07*2080), c(1,14,27), r, -1))
+hispanic_hs<-data.frame(year=0:40, 
+                     hispanichs=npv_promo(0:40, 0, c(15.17*2080,21.67*2080,28.17*2080), c(1,14,27), r, -1))
+
+ggplot()+geom_line(data=white_bach, mapping = aes(x= year, y = `whitebach`, color = "whitebach"))+
+  geom_line(data=black_bach, mapping = aes(x= year, y = `blackbach`, color = "blackbach"))+
+  geom_line(data=hispanic_bach, mapping = aes(x= year, y = `hispanicbach`, color = "hispanicbach"))+
+  geom_line(data=white_hs, mapping = aes(x= year, y = `whitehs`, color = "whitehs"), linetype=2)+
+  geom_line(data=black_hs, mapping = aes(x= year, y = `blackhs`, color = "blackhs"), linetype = 2)+
+  geom_line(data=hispanic_hs, mapping = aes(x= year, y = `hispanichs`, color = "hispanichs"), linetype = 2)+
+  labs(x = "Year", y = "Dollars", title = "NPV by Race" ) +
+  scale_color_manual(values=c("whitebach"="blue", "blackbach"="red","hispanicbach"= "green","whitehs"="blue", "blackhs"= "red", "hispanichs"="green"))
+
+
+bach1963<-data.frame(year=0:40, 
+                     bach1963=npv_promo_overtime(0:40, 243, r, 4, newhistoricbach, 'reported'))
+bach1963
+```
+# Crossover
+```{r}
+crossover(white_hs$whitehs,white_bach$whitebach)
+crossover(black_hs$blackhs,black_bach$blackbach)
+crossover(hispanic_hs$hispanichs,hispanic_bach$hispanicbach)
+crossover(white_hs$whitehs,hispanic_bach$hispanicbach)
+crossover(white_hs$whitehs,black_bach$blackbach)
+
+crossover(men_hs$menhs,men_bach$menbach)
+crossover(women_hs$womenhs,women_bach$womenbach)
+
+crossover(all_hs$allhs,all_bach$allbach)
+
+
+```
+
+#over time
+
+
+```{r}
+historichssalary<- historichssalary %>% mutate(weightedavg= (`Male (total number)`*`Male current dollars` + `Female (total number)`*`Female current dollars`)/(`Female (total number)`+ `Male (total number)`))
+historichssalary2<- historichssalary %>% group_by(`Educational attainment and year`) %>% summarize(weightedavg=mean(weightedavg))
+
+ggplot(data = historichssalary2, aes(x=`Educational attainment and year`, y = weightedavg)) + geom_point()
+
+model<- lm(log(weightedavg)~ `Educational attainment and year`, data=historichssalary2)
+model
+
+as.numeric(model$coefficients)
+
+newdata<-data.frame(`Educational attainment and year`=1960:2063, check.names = FALSE)
+fitted<-data.frame(years = 1960:2063, predicted = exp(predict(model, newdata)))
+
+ggplot(data = historichssalary2, aes(x=`Educational attainment and year`, y = weightedavg)) + geom_point() + geom_point(data = fitted, aes(x=years, y= predicted))
+```
+
+```{r}
+ggplot(data = historicbachsalary, aes(x=Year, y = `Reported Average
+Starting Salary`)) + geom_point()
+
+model2<- lm(log(`Reported Average
+Starting Salary`)~ Year, data=historicbachsalary)
+model2
+
+as.numeric(model2$coefficients)
+
+newdata2<-data.frame(Year=1960:2063, check.names = FALSE)
+fitted2<-data.frame(years = 1960:2063, predicted = exp(predict(model2, newdata2)))
+
+ggplot(data = historicbachsalary, aes(x=Year, y = `Reported Average
+Starting Salary`)) + geom_point() + geom_point(data = fitted2, aes(x=years, y= predicted))
+```
+
+
+#other/random
+
+Associate's
+
+```{r}
+cost<- 3890
+r<- 0.02
+
+sum_value <- sum(sapply(0:2, function(t) cost/ ((1+r)^t)))
+print(sum_value)
+```
+
+men's associate
+
+```{r}
+earnings3<- 62740
+
+sum_value6 <- sum(sapply(3:40, function(t) earnings3/ ((1+r)^t)))
+print(sum_value6)
+
+-sum_value+sum_value6
+
+```
+
+women's associate
+
+```{r}
+earnings4<- 50220
+
+sum_value7 <- sum(sapply(3:40, function(t) earnings4/ ((1+r)^t)))
+print(sum_value7)
+
+-sum_value+sum_value7
+```
+
+Public:
+
+```{r}
+cost2<- 9750
+
+sum_value2 <- sum(sapply(0:4, function(t) cost2/ ((1+r)^t)))
+print(sum_value2)
+```
+
+Private:
+
+```{r}
+cost3<-35248
+
+sum_value3 <- sum(sapply(0:4, function(t) cost3/ ((1+r)^t)))
+print(sum_value3)
+```
+
+men's bachelor
+
+```{r}
+earnings<-90330
+
+sum_value4 <- sum(sapply(5:40, function(t) earnings/ ((1+r)^t)))
+print(sum_value4)
+
+#Public
+-sum_value2+sum_value4
+
+#Private
+-sum_value3+sum_value4
+```
+
+women's bachelor
+
+```{r}
+earnings2<- 65960
+
+sum_value5 <- sum(sapply(5:40, function(t) earnings2/ ((1+r)^t)))
+print(sum_value5)
+
+#Public
+-sum_value2+sum_value5
+
+#Private
+(-sum_value3)+sum_value5
+```
+
+men high school
+
+```{r}
+earnings5<- 51460
+
+sum_value8 <- sum(sapply(0:40, function(t) earnings5/ ((1+r)^t)))
+print(sum_value8)
+```
+
+women's high school
+
+```{r}
+earnings6<- 40230
+
+sum_value9 <- sum(sapply(0:40, function(t) earnings6/ ((1+r)^t)))
+print(sum_value9)
+```
+
+Associate's
+
+```{r}
+cost1994cc<- 1280
+r<- 0.02
+
+sum_valuecc <- sum(sapply(0:3, function(t) cost1994cc/ ((1+r)^t)))
+print(sum_valuecc)
+```
+
+men's associate
+
+```{r}
+earnings1994mcc<- 35120
+
+sum_valmcc <- sum(sapply(4:40, function(t) earnings1994mcc/ ((1+r)^t)))
+print(sum_valmcc)
+
+-sum_valuecc+sum_valmcc
+
+```
+
+women's associate
+
+```{r}
+earnings1994wcc<- 25210
+
+sum_valwcc <- sum(sapply(4:40, function(t) earnings1994wcc/ ((1+r)^t)))
+print(sum_valwcc)
+
+-sum_valuecc+sum_valwcc
+```
+
+Public:
+
+```{r}
+cost2<- 9750
+
+sum_value2 <- sum(sapply(0:5, function(t) cost2/ ((1+r)^t)))
+print(sum_value2)
+```
+
+Private:
+
+```{r}
+cost3<-35248
+
+sum_value3 <- sum(sapply(0:5, function(t) cost3/ ((1+r)^t)))
+print(sum_value3)
+```
+
+men's bachelor
+
+```{r}
+earnings<-90330
+
+sum_value4 <- sum(sapply(6:40, function(t) earnings/ ((1+r)^t)))
+print(sum_value4)
+
+#Public
+-sum_value2+sum_value4
+
+#Private
+-sum_value3+sum_value4
+```
+
+women's bachelor
+
+```{r}
+earnings2<- 65960
+
+sum_value5 <- sum(sapply(6:40, function(t) earnings2/ ((1+r)^t)))
+print(sum_value5)
+
+#Public
+-sum_value2+sum_value5
+
+#Private
+(-sum_value3)+sum_value5
+```
+
+men high school
+
+```{r}
+earnings5<- 51460
+
+sum_value8 <- sum(sapply(0:40, function(t) earnings5/ ((1+r)^t)))
+print(sum_value8)
+```
+
+women's high school
+
+```{r}
+earnings6<- 40230
+
+sum_value9 <- sum(sapply(0:40, function(t) earnings6/ ((1+r)^t)))
+print(sum_value9)
+```
+
+
